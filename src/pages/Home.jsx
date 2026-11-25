@@ -246,7 +246,7 @@ export default function Home() {
                     type="text"
                     value={nickname}
                     onChange={handleNicknameChange}
-                    placeholder="Ex: Vitor, MestreDasCartas..."
+                    placeholder="Ex: noobmaster69, auramaxego..."
                     maxLength={20}
                     autoComplete="nickname"
                     disabled={isBusy}
