@@ -1,0 +1,292 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Work Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  --ink: #18181b;
+  --shadow-color: #18181b;
+  --focus-ring: #10b981;
+}
+
+.dark {
+  --ink: #09090b;
+  --shadow-color: #000000;
+  --focus-ring: #34d399;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    color: #18181b;
+    color-scheme: light;
+  }
+
+  html.dark,
+  .dark body {
+    color: #f8fafc;
+    background-color: #121318;
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #f4efe6;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.025em;
+  }
+
+  ::selection {
+    background: #fbbf24;
+    color: #18181b;
+  }
+}
+
+@layer components {
+  /* Mesa de jogo: areia quente (claro) / grafite profundo #121318 com pontos #1E2029 (noturno) */
+  .table-bg {
+    background-color: #f4efe6;
+    background-image: radial-gradient(rgba(24, 24, 27, 0.11) 1.4px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+
+  .dark .table-bg {
+    background-color: #121318;
+    background-image: radial-gradient(#1e2029 2px, transparent 2px);
+    background-size: 22px 22px;
+  }
+
+  /* Botões táteis estilo peça de tabuleiro / Xbox card */
+  .game-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    border: 2px solid var(--ink);
+    border-radius: 1rem;
+    box-shadow: 4px 4px 0 var(--shadow-color);
+    padding: 0.8rem 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #09090b;
+    cursor: pointer;
+    user-select: none;
+    transition:
+      transform 0.08s ease,
+      box-shadow 0.08s ease,
+      filter 0.15s ease;
+  }
+
+  .game-btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+    outline: 4px solid var(--focus-ring);
+    outline-offset: 0;
+  }
+
+  .game-btn-emerald:hover:not(:disabled) {
+    outline: 4px solid #fbbf24;
+    outline-offset: 0;
+  }
+
+  .game-btn:focus-visible {
+    outline: 4px solid #fbbf24;
+    outline-offset: 2px;
+  }
+
+  .game-btn:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+  }
+
+  .game-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: 2px 2px 0 var(--shadow-color);
+  }
+
+  .game-btn-emerald {
+    background: #10b981;
+    color: #09090b;
+  }
+
+  .game-btn-gold {
+    background: #fbbf24;
+    color: #09090b;
+  }
+
+  .game-btn-white {
+    background: #ffffff;
+    color: #18181b;
+  }
+
+  .dark .game-btn-white {
+    background: #262936;
+    color: #f8fafc;
+    border-color: #52525b;
+  }
+
+  .game-btn-sm {
+    border-radius: 0.75rem;
+    padding: 0.4rem 0.7rem;
+    box-shadow: 3px 3px 0 var(--shadow-color);
+  }
+
+  .game-btn-sm:active:not(:disabled) {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--shadow-color);
+  }
+
+  .game-btn-sm:hover:not(:disabled) {
+    outline-width: 3px;
+  }
+
+  /* Campos de texto com borda marcada e sombra sólida */
+  .game-input {
+    width: 100%;
+    border: 2px solid #18181b;
+    border-radius: 1rem;
+    background: #ffffff;
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #18181b;
+    box-shadow: 3px 3px 0 #18181b;
+    transition: box-shadow 0.1s ease, border-color 0.1s ease;
+  }
+
+  .game-input::placeholder {
+    color: #a1a1aa;
+    font-weight: 600;
+  }
+
+  .game-input:focus {
+    outline: 4px solid #fbbf24;
+    outline-offset: 0;
+  }
+
+  .game-input:disabled {
+    opacity: 0.6;
+  }
+
+  .dark .game-input {
+    background: #14161d;
+    color: #f8fafc;
+    border-color: #52525b;
+    box-shadow: 3px 3px 0 #000000;
+  }
+
+  .dark .game-input::placeholder {
+    color: #71717a;
+  }
+
+  /* Controle deslizante (range slider) tátil estilo console / board game */
+  .game-range {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 1rem;
+    margin: 0;
+    padding: 0;
+    border: 2px solid #18181b;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      #10b981 0%,
+      #10b981 var(--range-pos, 14px),
+      #ffffff var(--range-pos, 14px),
+      #ffffff 100%
+    );
+    box-shadow: 3px 3px 0 #18181b;
+    cursor: pointer;
+    transition: box-shadow 0.1s ease;
+  }
+
+  .dark .game-range {
+    border-color: #52525b;
+    background: linear-gradient(
+      to right,
+      #10b981 0%,
+      #10b981 var(--range-pos, 14px),
+      #14161d var(--range-pos, 14px),
+      #14161d 100%
+    );
+    box-shadow: 3px 3px 0 #000000;
+  }
+
+  .game-range:focus-visible {
+    outline: 4px solid #fbbf24;
+    outline-offset: 3px;
+  }
+
+  .game-range:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .game-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 2px solid #18181b;
+    border-radius: 0.65rem;
+    background: #fbbf24;
+    box-shadow: 3px 3px 0 #18181b;
+    cursor: grab;
+    transition:
+      transform 0.08s ease,
+      box-shadow 0.08s ease;
+  }
+
+  .dark .game-range::-webkit-slider-thumb {
+    border-color: #09090b;
+    box-shadow: 3px 3px 0 #000000;
+  }
+
+  .game-range::-webkit-slider-thumb:hover {
+    outline: 3px solid #10b981;
+  }
+
+  .game-range::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--shadow-color);
+  }
+
+  .game-range::-moz-range-thumb {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 2px solid #18181b;
+    border-radius: 0.65rem;
+    background: #fbbf24;
+    box-shadow: 3px 3px 0 #18181b;
+    cursor: grab;
+    transition:
+      transform 0.08s ease,
+      box-shadow 0.08s ease;
+  }
+
+  .dark .game-range::-moz-range-thumb {
+    border-color: #09090b;
+    box-shadow: 3px 3px 0 #000000;
+  }
+
+  .game-range::-moz-range-thumb:hover {
+    outline: 3px solid #10b981;
+  }
+
+  .game-range::-moz-range-thumb:active {
+    cursor: grabbing;
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--shadow-color);
+  }
+}
