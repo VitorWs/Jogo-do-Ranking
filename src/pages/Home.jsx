@@ -22,6 +22,27 @@ import {
   saveNickname,
 } from '../utils/playerSession';
 
+const DECORATIVE_CARDS = [
+  // Topo e cantos superiores
+  'bg-pink-500 -left-6 top-8 sm:left-8 sm:top-8 -rotate-12',
+  'hidden md:block bg-emerald-500 left-[17%] -top-7 rotate-[18deg]',
+  'bg-amber-400 left-[32%] -top-14 sm:left-[33%] sm:-top-10 -rotate-6',
+  'hidden md:block bg-purple-500 right-[27%] -top-9 rotate-12',
+  'hidden md:block bg-pink-500 right-24 -top-5 -rotate-[18deg]',
+  'bg-sky-500 -right-5 top-24 sm:right-8 sm:top-24 rotate-[15deg]',
+  // Laterais intermediárias (ocultas no celular)
+  'hidden md:block bg-sky-500 -left-4 top-[31%] md:left-4 lg:left-14 rotate-[22deg]',
+  'hidden md:block bg-amber-400 -left-5 top-[57%] md:left-8 lg:left-24 -rotate-[18deg]',
+  'hidden md:block bg-sky-500 -left-3 bottom-28 md:left-3 lg:left-10 rotate-[16deg]',
+  'hidden md:block bg-emerald-500 -right-5 top-[47%] md:right-6 lg:right-20 -rotate-[22deg]',
+  'hidden md:block bg-purple-500 -right-3 bottom-32 md:right-4 lg:right-12 rotate-[24deg]',
+  // Base e cantos inferiores
+  'bg-purple-500 -bottom-6 left-4 sm:bottom-6 sm:left-20 rotate-6',
+  'hidden md:block bg-pink-500 left-[26%] -bottom-10 -rotate-[14deg]',
+  'bg-emerald-500 right-[32%] -bottom-14 sm:right-[27%] sm:-bottom-9 rotate-[20deg]',
+  'bg-amber-400 -bottom-5 right-4 sm:bottom-6 sm:right-20 -rotate-12',
+];
+
 export default function Home() {
   const navigate = useNavigate();
   const [playerId] = useState(() => getOrCreatePlayerId());
@@ -164,12 +185,17 @@ export default function Home() {
 
   return (
     <div className="table-bg relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-14 font-sans text-zinc-900 dark:text-[#F8FAFC] sm:py-12">
-      {/* Peças decorativas espalhadas pela mesa (nas 5 cores oficiais) */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-6 top-10 h-24 w-16 -rotate-12 rounded-xl border-2 border-zinc-900 dark:border-zinc-950 bg-pink-500 shadow-[4px_4px_0px_#18181b] dark:shadow-[4px_4px_0px_#000000] sm:left-16 sm:h-32 sm:w-20" />
-        <div className="absolute -right-4 top-24 h-24 w-16 rotate-12 rounded-xl border-2 border-zinc-900 dark:border-zinc-950 bg-sky-500 shadow-[4px_4px_0px_#18181b] dark:shadow-[4px_4px_0px_#000000] sm:right-20 sm:h-32 sm:w-20" />
-        <div className="absolute -bottom-6 left-8 h-24 w-16 rotate-6 rounded-xl border-2 border-zinc-900 dark:border-zinc-950 bg-purple-500 shadow-[4px_4px_0px_#18181b] dark:shadow-[4px_4px_0px_#000000] sm:left-28 sm:h-32 sm:w-20" />
-        <div className="absolute -bottom-4 right-6 h-24 w-16 -rotate-6 rounded-xl border-2 border-zinc-900 dark:border-zinc-950 bg-amber-400 shadow-[4px_4px_0px_#18181b] dark:shadow-[4px_4px_0px_#000000] sm:right-32 sm:h-32 sm:w-20" />
+      {/* Peças decorativas espalhadas pela mesa (15 cartas lisas nas 5 cores oficiais) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none select-none absolute inset-0 overflow-hidden"
+      >
+        {DECORATIVE_CARDS.map((cardClasses, idx) => (
+          <div
+            key={idx}
+            className={`pointer-events-none select-none absolute h-24 w-16 sm:h-32 sm:w-20 rounded-xl border-2 border-zinc-900 dark:border-zinc-950 shadow-[4px_4px_0px_#18181b] dark:shadow-[4px_4px_0px_#000000] ${cardClasses}`}
+          />
+        ))}
       </div>
 
       {/* Botão de tema no canto superior */}
