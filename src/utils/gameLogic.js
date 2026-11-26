@@ -38,14 +38,13 @@ export function drawCards(allCards, usedCards = [], count = 5) {
 }
 
 /**
- * Compara o ranking secreto com o palpite do jogador (índices 0 a 4).
- * Soma 1 ponto por acerto na posição exata e +2 pontos de bônus se acertar todos os 5.
+ * Conta quantas posições exatas (índices 0 a 4) coincidem entre o ranking secreto e o palpite.
  *
  * @param {string[]} secretRanking
  * @param {string[]} playerGuess
  * @returns {number}
  */
-export function calculateScore(secretRanking, playerGuess) {
+export function countExactMatches(secretRanking, playerGuess) {
   if (
     !Array.isArray(secretRanking) ||
     !Array.isArray(playerGuess) ||
@@ -61,6 +60,18 @@ export function calculateScore(secretRanking, playerGuess) {
       matches += 1;
     }
   }
+  return matches;
+}
 
+/**
+ * Compara o ranking secreto com o palpite do jogador (índices 0 a 4).
+ * Soma 1 ponto por acerto na posição exata e +2 pontos de bônus se acertar todos os 5.
+ *
+ * @param {string[]} secretRanking
+ * @param {string[]} playerGuess
+ * @returns {number}
+ */
+export function calculateScore(secretRanking, playerGuess) {
+  const matches = countExactMatches(secretRanking, playerGuess);
   return matches === 5 ? matches + 2 : matches;
 }

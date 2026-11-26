@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -17,6 +17,7 @@ import {
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
+import { playCardMove } from '../utils/sound.js';
 
 /**
  * Cores oficiais das posições (1º ao 5º):
@@ -119,6 +120,7 @@ function SortableCard({ id, position, isFirst, isLast, disabled, isDragging, onM
 export default function RankingList({ items, onChange, disabled = false }) {
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
+  const lastOverIdRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -134,6 +136,7 @@ export default function RankingList({ items, onChange, disabled = false }) {
   const resetDrag = () => {
     setActiveId(null);
     setOverId(null);
+    lastOverIdRef.current = null;
   };
 
   const handleDragEnd = () => {
@@ -144,6 +147,7 @@ export default function RankingList({ items, onChange, disabled = false }) {
   const moveBy = (index, delta) => {
     const to = index + delta;
     if (disabled || to < 0 || to >= items.length) return;
+    playCardMove();
     onChange(arrayMove(items, index, to));
   };
 
@@ -160,8 +164,16 @@ export default function RankingList({ items, onChange, disabled = false }) {
         onDragStart={({ active }) => {
           setActiveId(active.id);
           setOverId(active.id);
+          lastOverIdRef.current = active.id;
         }}
-        onDragOver={({ over }) => setOverId(over ? over.id : null)}
+        onDragOver={({ over }) => {
+          const nextOver = over ? over.id : null;
+          if (nextOver && nextOver !== lastOverIdRef.current) {
+            lastOverIdRef.current = nextOver;
+            playCardMove();
+          }
+          setOverId(nextOver);
+        }}
         onDragEnd={handleDragEnd}
         onDragCancel={resetDrag}
       >

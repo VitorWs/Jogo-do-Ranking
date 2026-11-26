@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { HowToPlaySteps } from '../components/HowToPlayModal.jsx';
+import SoundToggle from '../components/SoundToggle.jsx';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 import { db } from '../services/firebase';
 import { generateRoomCode } from '../utils/gameLogic';
@@ -119,10 +120,12 @@ export default function Home() {
         guesses: {},
         revealedCards: {},
         roundPlayerIds: [],
+        roundHistory: [],
         players: {
           [playerId]: {
             name: trimmedName,
             score: 0,
+            exactHits: 0,
             joinedAt: Date.now(),
           },
         },
@@ -167,6 +170,7 @@ export default function Home() {
           [`players.${playerId}`]: {
             name: trimmedName,
             score: 0,
+            exactHits: 0,
             joinedAt: Date.now(),
           },
         });
@@ -198,8 +202,9 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Botão de tema no canto superior */}
-      <div className="absolute right-3 top-3 z-20 sm:right-5 sm:top-5">
+      {/* Botões de som e tema no canto superior */}
+      <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-5 sm:top-5">
+        <SoundToggle />
         <ThemeToggle />
       </div>
 

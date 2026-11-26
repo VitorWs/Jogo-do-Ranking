@@ -11,10 +11,12 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
+  Brain,
   Check,
   Clock,
   Crown,
   Eye,
+  Flame,
   HelpCircle,
   Link2,
   Loader2,
@@ -32,13 +34,19 @@ import {
 } from 'lucide-react';
 import { db } from '../services/firebase';
 import cardsData from '../data/cards.json';
-import { calculateScore, drawCards } from '../utils/gameLogic';
+import { calculateScore, countExactMatches, drawCards } from '../utils/gameLogic';
 import {
   getOrCreatePlayerId,
   getSavedNickname,
   saveNickname,
 } from '../utils/playerSession';
+import {
+  playRevealAnswer,
+  playRevealGuesses,
+  playVictory,
+} from '../utils/sound.js';
 import HowToPlayModal from '../components/HowToPlayModal.jsx';
+import SoundToggle from '../components/SoundToggle.jsx';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 import RankingList, { POSITION_BADGES } from '../components/RankingList.jsx';
 
@@ -55,13 +63,14 @@ function clampCycles(value) {
 
 /* ----------------------------- helpers ----------------------------- */
 
-/** Lista ordenada e estável de jogadores: [{ id, name, score, joinedAt }] */
+/** Lista ordenada e estável de jogadores: [{ id, name, score, exactHits, joinedAt }] */
 function getOrderedPlayers(players = {}) {
   return Object.entries(players)
     .map(([id, p]) => ({
       id,
       name: p?.name ?? 'Jogador',
       score: p?.score ?? 0,
+      exactHits: p?.exactHits ?? 0,
       joinedAt: p?.joinedAt ?? 0,
     }))
     .sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
@@ -193,20 +202,20 @@ function Header({ room, roomId, players, playerId, isHost, onRemove, onOpenHelp 
 
   return (
     <header className="mb-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-2">
         <Link
           to="/"
           aria-label="Voltar para o início"
-          className="game-btn game-btn-white game-btn-sm h-11 w-11 shrink-0 !p-0"
+          className="game-btn game-btn-white game-btn-sm h-10 w-10 sm:h-11 sm:w-11 shrink-0 !p-0"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
 
-        <div className="flex min-w-0 flex-1 flex-col items-center rounded-2xl border-2 border-zinc-900 dark:border-zinc-700 bg-white dark:bg-[#1D1F27] px-2.5 py-1.5 shadow-[3px_3px_0px_#18181b] dark:shadow-[3px_3px_0px_#000000]">
+        <div className="flex min-w-0 flex-1 flex-col items-center rounded-2xl border-2 border-zinc-900 dark:border-zinc-700 bg-white dark:bg-[#1D1F27] px-2 py-1.5 shadow-[3px_3px_0px_#18181b] dark:shadow-[3px_3px_0px_#000000]">
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
             Sala
           </span>
-          <span className="text-xl sm:text-2xl font-extrabold leading-none tracking-[0.22em] text-zinc-900 dark:text-[#F8FAFC]">
+          <span className="text-lg sm:text-2xl font-extrabold leading-none tracking-[0.2em] sm:tracking-[0.22em] text-zinc-900 dark:text-[#F8FAFC]">
             {roomId}
           </span>
         </div>
@@ -216,7 +225,7 @@ function Header({ room, roomId, players, playerId, isHost, onRemove, onOpenHelp 
           onClick={handleCopy}
           aria-label="Copiar link de convite"
           title="Copiar link de convite"
-          className="game-btn game-btn-gold game-btn-sm h-11 shrink-0 px-3 text-xs"
+          className="game-btn game-btn-gold game-btn-sm h-10 sm:h-11 shrink-0 px-2.5 sm:px-3 text-xs"
         >
           {copied ? (
             <>
@@ -234,12 +243,14 @@ function Header({ room, roomId, players, playerId, isHost, onRemove, onOpenHelp 
           onClick={onOpenHelp}
           aria-label="Como jogar"
           title="Como jogar"
-          className="game-btn game-btn-white game-btn-sm h-11 w-11 shrink-0 !p-0"
+          className="game-btn game-btn-white game-btn-sm h-10 w-10 sm:h-11 sm:w-11 shrink-0 !p-0"
         >
           <HelpCircle className="h-5 w-5" />
         </button>
 
-        <ThemeToggle />
+        <SoundToggle className="!h-10 !w-10 sm:!h-11 sm:!w-11" />
+
+        <ThemeToggle className="!h-10 !w-10 sm:!h-11 sm:!w-11" />
       </div>
 
       {room.status !== 'LOBBY' && (
@@ -753,13 +764,35 @@ function ResultsView({ room, players, playerId, judgeName, isJudge, isHost, busy
   );
 }
 
-function FinishedView({ players, playerId, isHost, busy, onReplay }) {
+function FinishedView({ room, players, playerId, isHost, busy, onReplay }) {
+  useEffect(() => {
+    playVictory();
+  }, []);
+
   const podium = [...players].sort((a, b) => b.score - a.score);
   const rowColors = [
     'border-zinc-900 dark:border-zinc-950 bg-amber-300 text-zinc-950',
     'border-zinc-900 dark:border-zinc-950 bg-sky-200 text-zinc-950',
     'border-zinc-900 dark:border-zinc-950 bg-orange-300 text-zinc-950',
   ];
+
+  // Estatística 1: Melhor Leitor de Mentes (maior acumulado de acertos exatos)
+  const maxExactHits = Math.max(0, ...players.map((p) => p.exactHits ?? 0));
+  const mindReaders =
+    maxExactHits > 0 ? players.filter((p) => (p.exactHits ?? 0) === maxExactHits) : [];
+
+  // Estatística 2: Carta Mais Polêmica (menor taxa de acerto na partida)
+  const history = Array.isArray(room?.roundHistory) ? room.roundHistory : [];
+  const mostControversial = useMemo(() => {
+    if (history.length === 0) return null;
+    return [...history].sort((a, b) => {
+      const rateA = a.totalGuessers > 0 ? a.hits / a.totalGuessers : 1;
+      const rateB = b.totalGuessers > 0 ? b.hits / b.totalGuessers : 1;
+      if (rateA !== rateB) return rateA - rateB;
+      if (a.hits !== b.hits) return a.hits - b.hits;
+      return (b.totalGuessers ?? 0) - (a.totalGuessers ?? 0);
+    })[0];
+  }, [history]);
 
   return (
     <Panel className="space-y-5">
@@ -813,6 +846,80 @@ function FinishedView({ players, playerId, isHost, busy, onReplay }) {
           );
         })}
       </ol>
+
+      {/* Destaques da Partida */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Melhor Leitor de Mentes */}
+        <div className="flex flex-col justify-between gap-3 rounded-2xl border-2 border-zinc-900 dark:border-zinc-700 bg-[#FFFBF2] dark:bg-[#252834] p-4 shadow-[3px_3px_0px_#18181b] dark:shadow-[3px_3px_0px_#000000]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-zinc-900 dark:border-zinc-950 bg-purple-500 text-white shadow-[2px_2px_0px_#18181b] dark:shadow-[2px_2px_0px_#000000]">
+              <Brain className="h-5 w-5" />
+            </div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Melhor Leitor de Mentes
+            </h3>
+          </div>
+
+          {mindReaders.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-lg font-extrabold leading-tight tracking-tight text-zinc-900 dark:text-[#F8FAFC] break-words">
+                {mindReaders.map((w) => w.name).join(' & ')}
+              </p>
+              <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                {mindReaders.length > 1 ? 'Empate — ' : ''}
+                {maxExactHits}{' '}
+                {maxExactHits === 1 ? 'posição exata cravada' : 'posições exatas cravadas'}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">
+              Nenhuma posição exata foi cravada nesta partida.
+            </p>
+          )}
+        </div>
+
+        {/* Carta Mais Polêmica */}
+        <div className="flex flex-col justify-between gap-3 rounded-2xl border-2 border-zinc-900 dark:border-zinc-700 bg-[#FFFBF2] dark:bg-[#252834] p-4 shadow-[3px_3px_0px_#18181b] dark:shadow-[3px_3px_0px_#000000]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-zinc-900 dark:border-zinc-950 bg-pink-500 text-white shadow-[2px_2px_0px_#18181b] dark:shadow-[2px_2px_0px_#000000]">
+              <Flame className="h-5 w-5" />
+            </div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+              Carta Mais Polêmica
+            </h3>
+          </div>
+
+          {mostControversial ? (
+            <div className="space-y-2">
+              <p className="text-base font-extrabold leading-snug tracking-tight text-zinc-900 dark:text-[#F8FAFC] break-words">
+                &ldquo;{mostControversial.card}&rdquo;
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                <span>
+                  {mostControversial.hits === 0
+                    ? 'Ninguém acertou'
+                    : `Apenas ${mostControversial.hits}/${mostControversial.totalGuessers} ${
+                        mostControversial.hits === 1 ? 'acertou' : 'acertaram'
+                      }`}{' '}
+                  — o Juiz colocou em
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-lg border-2 border-zinc-900 dark:border-zinc-950 px-2 py-0.5 text-xs font-extrabold shadow-[1px_1px_0px_#18181b] dark:shadow-[1px_1px_0px_#000000] tabular-nums ${
+                    POSITION_BADGES[(mostControversial.judgePos ?? 1) - 1] ??
+                    'bg-zinc-200 text-zinc-950'
+                  }`}
+                >
+                  {mostControversial.judgePos}º lugar
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">
+              Sem histórico de cartas registrado nesta partida.
+            </p>
+          )}
+        </div>
+      </div>
 
       {isHost ? (
         <PrimaryButton onClick={onReplay} loading={busy} variant="gold">
@@ -952,6 +1059,7 @@ export default function Room() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+  const prevRevealedRef = useRef(null);
 
   // Assinatura em tempo real
   useEffect(() => {
@@ -977,12 +1085,60 @@ export default function Room() {
     return unsubscribe;
   }, [roomRef]);
 
+  // Efeitos sonoros sincronizados na fase RESULTS (Mostrar Palpites / Revelar Posição)
+  useEffect(() => {
+    if (!room || room.status !== 'RESULTS') {
+      prevRevealedRef.current = null;
+      return;
+    }
+
+    const revealMap =
+      room.revealedCards &&
+      typeof room.revealedCards === 'object' &&
+      !Array.isArray(room.revealedCards)
+        ? room.revealedCards
+        : {};
+
+    if (prevRevealedRef.current === null) {
+      prevRevealedRef.current = { ...revealMap };
+      return;
+    }
+
+    const prev = prevRevealedRef.current;
+    const guesserIds = getRoundIds(room).filter(
+      (id) => id !== room.currentJudgeId && room.players?.[id]
+    );
+
+    (room.currentItems || []).forEach((card) => {
+      const prevStage = prev[card];
+      const nextStage = revealMap[card];
+      if (prevStage === nextStage) return;
+
+      if (nextStage === 'GUESSES') {
+        playRevealGuesses();
+      } else if (nextStage === 'ALL') {
+        const judgePos = (room.secretRanking || []).indexOf(card) + 1;
+        const hasExactMatch =
+          judgePos > 0 &&
+          guesserIds.some((gid) => (room.guesses?.[gid] || []).indexOf(card) + 1 === judgePos);
+        playRevealAnswer(hasExactMatch);
+      }
+    });
+
+    prevRevealedRef.current = { ...revealMap };
+  }, [room]);
+
   // Garante que o jogador atual esteja em players (link direto / nova aba)
   const isInRoom = Boolean(room?.players?.[playerId]);
   useEffect(() => {
     if (!room || isInRoom || !playerName) return;
     updateDoc(roomRef, {
-      [`players.${playerId}`]: { name: playerName, score: 0, joinedAt: Date.now() },
+      [`players.${playerId}`]: {
+        name: playerName,
+        score: 0,
+        exactHits: 0,
+        joinedAt: Date.now(),
+      },
     }).catch((err) => {
       console.error('Erro ao entrar na sala:', err);
       setError('Não foi possível entrar na sala.');
@@ -1059,7 +1215,7 @@ export default function Room() {
         ];
 
         const cards = drawCards(cardsData, r.usedCards || [], CARDS_PER_ROUND);
-        tx.update(roomRef, {
+        const startUpdate = {
           status: 'RANKING',
           round: 1,
           cycles,
@@ -1067,12 +1223,18 @@ export default function Room() {
           judgeOrder,
           currentJudgeId: judgeOrder[0],
           roundPlayerIds: ordered.map((p) => p.id),
+          roundHistory: [],
           currentItems: cards,
           usedCards: computeUsedCards(r.usedCards || [], cards),
           secretRanking: [],
           guesses: {},
           revealedCards: {},
+        };
+        ordered.forEach((p) => {
+          startUpdate[`players.${p.id}.score`] = 0;
+          startUpdate[`players.${p.id}.exactHits`] = 0;
         });
+        tx.update(roomRef, startUpdate);
       });
     });
 
@@ -1115,13 +1277,38 @@ export default function Room() {
         }
 
         const ordered = getOrderedPlayers(r.players);
+        const activeGuessers = ordered.filter(
+          (p) => p.id !== r.currentJudgeId && getRoundIds(r).includes(p.id)
+        );
         const update = {};
 
-        ordered.forEach((p) => {
-          if (p.id === r.currentJudgeId || !getRoundIds(r).includes(p.id)) return;
+        activeGuessers.forEach((p) => {
+          const exact = countExactMatches(r.secretRanking, r.guesses?.[p.id]);
           const gained = calculateScore(r.secretRanking, r.guesses?.[p.id]);
           update[`players.${p.id}.score`] = p.score + gained;
+          update[`players.${p.id}.exactHits`] = (p.exactHits ?? 0) + exact;
         });
+
+        // Registra o desempenho de cada carta da rodada para as estatísticas finais
+        const roundCardStats = (r.currentItems || []).map((card) => {
+          const judgePos = (r.secretRanking || []).indexOf(card) + 1;
+          let hits = 0;
+          activeGuessers.forEach((p) => {
+            const guessPos = (r.guesses?.[p.id] || []).indexOf(card) + 1;
+            if (judgePos > 0 && guessPos === judgePos) hits += 1;
+          });
+          return {
+            card,
+            judgePos,
+            judgeName: r.players?.[r.currentJudgeId]?.name ?? 'Juiz',
+            hits,
+            totalGuessers: activeGuessers.length,
+          };
+        });
+        update.roundHistory = [
+          ...(Array.isArray(r.roundHistory) ? r.roundHistory : []),
+          ...roundCardStats,
+        ];
 
         if (r.round >= r.maxRounds) {
           update.status = 'FINISHED';
@@ -1161,6 +1348,7 @@ export default function Room() {
           maxRounds: Math.max(playerIds.length, 1) * cycles,
           judgeOrder: [],
           roundPlayerIds: [],
+          roundHistory: [],
           currentItems: [],
           secretRanking: [],
           guesses: {},
@@ -1168,6 +1356,7 @@ export default function Room() {
         };
         playerIds.forEach((id) => {
           update[`players.${id}.score`] = 0;
+          update[`players.${id}.exactHits`] = 0;
         });
         tx.update(roomRef, update);
       });
@@ -1202,6 +1391,7 @@ export default function Room() {
               round: 1,
               judgeOrder: [],
               roundPlayerIds: [],
+              roundHistory: [],
               currentItems: [],
               secretRanking: [],
               guesses: {},
@@ -1385,6 +1575,7 @@ export default function Room() {
 
           {room.status === 'FINISHED' && (
             <FinishedView
+              room={room}
               players={players}
               playerId={playerId}
               isHost={isHost}
